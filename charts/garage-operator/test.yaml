@@ -1,0 +1,5 @@
+image:
+  repository: ghcr.io/garage-operator
+  pullPolicy: Always
+  tag: "latest"
+namespace: default

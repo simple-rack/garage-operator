@@ -1,0 +1,6 @@
+apiVersion: v2
+name: garage-operator
+description: Operator for the Garage S3 storage project.
+type: application
+version: 0.1.0
+appVersion: "0.8.2"

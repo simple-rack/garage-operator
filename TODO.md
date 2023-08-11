@@ -1,0 +1,6 @@
+- Bundle the CRDs with the helm chart
+- Figure out metrics / tracing
+- Add mirrord to flake.nix
+- Add docs to helm chart
+- Show examples using helm chart
+- Add some examples of custom resources to README.md

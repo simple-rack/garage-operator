@@ -1,0 +1,302 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: accesskeys.deuxfleurs.fr
+spec:
+  group: deuxfleurs.fr
+  names:
+    categories: []
+    kind: AccessKey
+    plural: accesskeys
+    shortNames: []
+    singular: accesskey
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: owning bucket instance
+      jsonPath: .spec.bucketRef
+      name: bucket
+      type: string
+    - description: permissions for this bucket
+      jsonPath: .state.permissionsFriendly
+      name: permissions
+      type: string
+    - description: bucket status
+      jsonPath: .status.state
+      name: status
+      type: string
+    name: v0alpha
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for AccessKeySpec via `CustomResource`
+        properties:
+          spec:
+            description: A bucket in a garage instance
+            properties:
+              bucketRef:
+                type: string
+              garageRef:
+                type: string
+              permissions:
+                properties:
+                  owner:
+                    nullable: true
+                    type: boolean
+                  read:
+                    nullable: true
+                    type: boolean
+                  write:
+                    nullable: true
+                    type: boolean
+                type: object
+              secretRef:
+                description: Optionally set the name of the generated secret. The default is NAME.BUCKET.GARAGE.key
+                nullable: true
+                type: string
+            required:
+            - bucketRef
+            - garageRef
+            - permissions
+            type: object
+          status:
+            nullable: true
+            properties:
+              permissionsFriendly:
+                type: string
+              state:
+                enum:
+                - Creating
+                - Ready
+                type: string
+            required:
+            - permissionsFriendly
+            - state
+            type: object
+        required:
+        - spec
+        title: AccessKey
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: garages.deuxfleurs.fr
+spec:
+  group: deuxfleurs.fr
+  names:
+    categories: []
+    kind: Garage
+    plural: garages
+    shortNames: []
+    singular: garage
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: configured region
+      jsonPath: .spec.config.region
+      name: region
+      type: string
+    - description: configured replication mode
+      jsonPath: .spec.config.replicationMode
+      name: replication
+      type: string
+    - description: garage status
+      jsonPath: .status
+      name: status
+      type: string
+    name: v0alpha
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for GarageSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              Generate the Kubernetes wrapper struct `Garage` from our Spec and Status struct
+
+              This provides a hook for generating the CRD yaml (in crdgen.rs)
+            properties:
+              autolayout:
+                type: boolean
+              config:
+                nullable: true
+                properties:
+                  ports:
+                    properties:
+                      admin:
+                        format: uint16
+                        minimum: 0.0
+                        type: integer
+                      rpc:
+                        format: uint16
+                        minimum: 0.0
+                        type: integer
+                      s3Api:
+                        format: uint16
+                        minimum: 0.0
+                        type: integer
+                      s3Web:
+                        format: uint16
+                        minimum: 0.0
+                        type: integer
+                    required:
+                    - admin
+                    - rpc
+                    - s3Api
+                    - s3Web
+                    type: object
+                  region:
+                    type: string
+                  replicationMode:
+                    type: string
+                required:
+                - ports
+                - region
+                - replicationMode
+                type: object
+              secrets:
+                nullable: true
+                properties:
+                  admin:
+                    nullable: true
+                    properties:
+                      namespace:
+                        nullable: true
+                        type: string
+                      secretName:
+                        nullable: true
+                        type: string
+                    type: object
+                  rpc:
+                    nullable: true
+                    properties:
+                      namespace:
+                        nullable: true
+                        type: string
+                      secretName:
+                        nullable: true
+                        type: string
+                    type: object
+                type: object
+              storage:
+                nullable: true
+                properties:
+                  data:
+                    properties:
+                      existingClaim:
+                        nullable: true
+                        type: string
+                      size:
+                        nullable: true
+                        type: string
+                      storageClass:
+                        nullable: true
+                        type: string
+                    type: object
+                  meta:
+                    properties:
+                      existingClaim:
+                        nullable: true
+                        type: string
+                      size:
+                        nullable: true
+                        type: string
+                      storageClass:
+                        nullable: true
+                        type: string
+                    type: object
+                required:
+                - data
+                - meta
+                type: object
+            required:
+            - autolayout
+            type: object
+          status:
+            description: The status object of `Garage`
+            enum:
+            - Creating
+            - LayingOut
+            - Ready
+            nullable: true
+            type: string
+        required:
+        - spec
+        title: Garage
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: buckets.deuxfleurs.fr
+spec:
+  group: deuxfleurs.fr
+  names:
+    categories: []
+    kind: Bucket
+    plural: buckets
+    shortNames: []
+    singular: bucket
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: owning garage instance
+      jsonPath: .spec.garageRef
+      name: garage
+      type: string
+    - description: quotas for this bucket
+      jsonPath: .spec.quotas
+      name: quotas
+      type: string
+    - description: bucket status
+      jsonPath: .status
+      name: status
+      type: string
+    name: v0alpha
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for BucketSpec via `CustomResource`
+        properties:
+          spec:
+            description: A bucket in a garage instance
+            properties:
+              garageRef:
+                type: string
+              quotas:
+                properties:
+                  maxObjectCount:
+                    format: uint
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  maxSize:
+                    description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                    nullable: true
+                    type: string
+                type: object
+            required:
+            - garageRef
+            - quotas
+            type: object
+          status:
+            enum:
+            - Creating
+            - Ready
+            nullable: true
+            type: string
+        required:
+        - spec
+        title: Bucket
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

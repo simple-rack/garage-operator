@@ -1,0 +1,19 @@
+name: "Build garage-operator container and push to GHCR"
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v22
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: 'nix build --print-build-logs --verbose --log-format raw --out-link container.img .#container'
+      - run: 'docker load --input container.img'
+      - run: 'docker image tag ghcr.io/simple-rack/garage-operator:latest ghcr.io/simple-rack/garage-operator:${{ github.ref_name }}'
+      - run: 'docker push --all-tags ghcr.io/simple-rack/garage-operator'
