@@ -36,7 +36,7 @@
           contents = [garage-operator];
           config = {
             Entrypoint = [
-              "${garage-operator}/bin/garage-operator"
+              "${garage-operator}/bin/operator"
             ];
             Env = [
               "RUST_LOG=info"
