@@ -53,6 +53,7 @@
             [cargo rustc rustfmt pre-commit rustPackages.clippy]
             ++ [
               alejandra
+              act
               docker-machine-kvm2
               kubernetes-helm
               httpie
