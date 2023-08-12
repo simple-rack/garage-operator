@@ -4,4 +4,5 @@
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
     "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix",
+    "nix.formatterPath": "alejandra"
 }
