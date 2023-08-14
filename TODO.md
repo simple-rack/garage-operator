@@ -4,3 +4,7 @@
 - Add docs to helm chart
 - Show examples using helm chart
 - Add some examples of custom resources to README.md
+- Provision when resources available
+    - Wait until garage container started before laying out
+- Add admission webhook to set defaults upon creation
+- Have GitHub generate the docs folder with a github action
