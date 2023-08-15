@@ -397,6 +397,7 @@ impl Garage {
 
         let owner = self.controller_owner_ref(&()).unwrap();
         let name = self.prefixed_name("config");
+        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
         let cm = ConfigMap {
             metadata: meta! { owners: vec![owner], name: Some(name.clone()) },
             data: Some(BTreeMap::from([("garage.toml".into(), garage_config)])),
@@ -405,7 +406,7 @@ impl Garage {
             immutable: None,
         };
 
-        let configs = Api::<ConfigMap>::default_namespaced(client.clone());
+        let configs = Api::<ConfigMap>::namespaced(client.clone(), &namespace);
         let params = PatchParams::apply("garage-operator");
         let patch = Patch::Apply(cm);
         configs
@@ -418,6 +419,7 @@ impl Garage {
 
     async fn create_deployment(&self, client: Client) -> Result<()> {
         let name = self.name_any();
+        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
         let labels = labels! { instance: name.clone() };
         let owner = self.controller_owner_ref(&()).unwrap();
 
@@ -567,7 +569,7 @@ impl Garage {
             ..Default::default()
         };
 
-        let deployments = Api::<Deployment>::default_namespaced(client.clone());
+        let deployments = Api::<Deployment>::namespaced(client.clone(), &namespace);
         let params = PatchParams::apply("garage-operator");
         let patch = Patch::Apply(deployment_data);
         deployments
@@ -583,8 +585,9 @@ impl Garage {
     /// Secrets can be also manually specified in the spec, which allows for the
     /// user to manually specify the secrets, if necessary.
     async fn create_secrets(&self, client: Client) -> Result<()> {
+        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
         let secret_references = self.spec.secrets.clone().unwrap_or_default();
-        let secrets = Api::<Secret>::default_namespaced(client.clone());
+        let secrets = Api::<Secret>::namespaced(client.clone(), &namespace);
 
         let needed_secrets = [
             (secret_references.admin, self.prefixed_name("admin.key")),
