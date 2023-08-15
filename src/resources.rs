@@ -588,37 +588,39 @@ impl Garage {
         let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
         let secret_references = self.spec.secrets.clone().unwrap_or_default();
         let secrets = Api::<Secret>::namespaced(client.clone(), &namespace);
+        let owner = self.controller_owner_ref(&()).unwrap();
 
         let needed_secrets = [
             (secret_references.admin, self.prefixed_name("admin.key")),
             (secret_references.rpc, self.prefixed_name("rpc.key")),
         ];
         for (reference, secret_id) in needed_secrets {
-            let owner = self.controller_owner_ref(&()).unwrap();
-            if reference.is_none() {
-                // Garage RPC requires 32 bytes of hex, so we'll just default to this for all secrets
-                let secret_value =
-                    format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+            // Skip creating the secret if there is a valid entry for it in the CRD
+            if reference.is_some() {
+                continue;
+            }
 
-                let secret = Secret {
-                    metadata: meta! { owners: vec![owner], name: Some(secret_id) },
-                    string_data: Some(BTreeMap::from([("key".into(), secret_value)])),
+            // Garage RPC requires 32 bytes of hex, so we'll just default to this for all secrets
+            let secret_value = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
 
-                    ..Default::default()
-                };
+            let secret = Secret {
+                metadata: meta! { owners: vec![owner.clone()], name: Some(secret_id) },
+                string_data: Some(BTreeMap::from([("key".into(), secret_value)])),
 
-                secrets
-                    .create(
-                        &PostParams {
-                            field_manager: Some("garage-operator".into()),
-
-                            ..Default::default()
-                        },
-                        &secret,
-                    )
-                    .await
-                    .map_err(Error::KubeError)?;
+                ..Default::default()
             };
+
+            secrets
+                .create(
+                    &PostParams {
+                        field_manager: Some("garage-operator".into()),
+
+                        ..Default::default()
+                    },
+                    &secret,
+                )
+                .await
+                .map_err(Error::KubeError)?;
         }
 
         Ok(())

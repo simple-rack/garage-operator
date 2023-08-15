@@ -223,9 +223,7 @@ mod controller {
         let name = garage.name_any();
         let ns = garage.namespace().clone().unwrap_or("default".into());
 
-        let admin = garage.create_admin(ctx.client.clone()).await?;
         let buckets = Api::<Bucket>::all(ctx.client.clone());
-
         let owned_buckets = buckets
             .list(&Default::default())
             .await
@@ -265,6 +263,7 @@ mod controller {
                     .map_err(Error::KubeError)?;
 
                 // Actually layout the instance
+                let admin = garage.create_admin(ctx.client.clone()).await?;
                 admin.layout_instance().await?;
 
                 GarageStatus::Ready
