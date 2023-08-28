@@ -125,16 +125,23 @@ impl Garage {
         macro_rules! consolidate_keys {
             ($id:expr, $bucket:expr) => {
                 async {
-                    let ns = self.namespace().unwrap();
+                    let garage_ns = self.namespace().unwrap();
+                    let bucket_ns = $bucket.namespace().unwrap();
 
-                    let access_keys =
-                        Api::<AccessKey>::namespaced(client.clone(), &self.namespace().unwrap());
+                    let access_keys = Api::<AccessKey>::all(client.clone());
                     let owned_keys: Vec<_> = access_keys
                         .list(&ListParams::default())
                         .await
                         .map_err(Error::KubeError)?
                         .into_iter()
-                        .filter(|ak| ak.spec.bucket_ref == format!("{ns}/{}", $bucket.name_any()))
+                        .filter(|ak| {
+                            let garage_matches =
+                                ak.spec.garage_ref == format!("{garage_ns}/{}", self.name_any());
+                            let bucket_matches =
+                                ak.spec.bucket_ref == format!("{bucket_ns}/{}", $bucket.name_any());
+
+                            garage_matches && bucket_matches
+                        })
                         .collect();
                     self.handle_access_keys(client.clone(), $id, $bucket, &owned_keys)
                         .await?;
