@@ -17,9 +17,9 @@ use k8s_openapi::{
 };
 use kube::{
     api::{ListParams, Patch, PatchParams, PostParams},
+    core::{ObjectMeta, PartialObjectMetaExt},
     Api, Client, Resource, ResourceExt,
 };
-use serde_json::json;
 use uuid::Uuid;
 
 mod access_key;
@@ -103,7 +103,10 @@ impl Garage {
     pub async fn handle_buckets(&self, client: Client, buckets: &[Bucket]) -> Result<()> {
         // First see which buckets we have currently configured
         let admin = self.create_admin(client.clone()).await?;
-        let owner = self.controller_owner_ref(&()).unwrap();
+
+        // TODO: Cross-namespace owning references are not allowed, so we'll need to
+        // figure out a way to auto delete buckets which exist in other namespaces...
+        let _owner = self.controller_owner_ref(&()).unwrap();
 
         // Sets of the IDs for easy set operations
         let current_buckets = admin.get_buckets().await?;
@@ -136,7 +139,7 @@ impl Garage {
                     self.handle_access_keys(client.clone(), $id, $bucket, &owned_keys)
                         .await?;
 
-                    Ok(())
+                    Ok::<(), Error>(())
                 }
             };
         }
@@ -160,16 +163,13 @@ impl Garage {
                 let id = admin.create_bucket(name.clone()).await?;
                 let buckets = Api::<Bucket>::namespaced(client.clone(), &ns);
 
-                let new_label = Patch::Apply(json!({
-                    "apiVersion": "deuxfleurs.fr/v0alpha",
-                    "kind": "Bucket",
-                    "metadata": {
-                        "annotations": {
-                            "bucket/id": id.clone(),
-                        },
-                        "ownerReferences": [owner],
-                    },
-                }));
+                let new_label = Patch::Apply(
+                    ObjectMeta {
+                        annotations: Some(BTreeMap::from([("bucket/id".into(), id.clone())])),
+                        ..Default::default()
+                    }
+                    .into_request_partial::<Bucket>(),
+                );
 
                 let ps = PatchParams::apply("garage-operator").force();
                 let _o = buckets
@@ -218,7 +218,10 @@ impl Garage {
     ) -> Result<()> {
         // First see which buckets we have currently configured
         let admin = self.create_admin(client.clone()).await?;
-        let owner = owning_bucket.controller_owner_ref(&()).unwrap();
+
+        // TODO: Cross-namespace owning references are not allowed, so we'll need to
+        // figure out a way to auto delete access keys which exist in other namespaces...
+        let _owner = owning_bucket.controller_owner_ref(&()).unwrap();
 
         // Sets of the IDs for easy set operations
         let current_access_keys = admin.get_access_keys().await?;
@@ -250,18 +253,22 @@ impl Garage {
                 let ns = ak.namespace().unwrap();
 
                 let key = admin.create_access_key(name.clone()).await?;
+                let access_key_id = key.access_key_id.unwrap();
+                let secret_access_key = key.secret_access_key.unwrap();
+
                 let access_keys = Api::<AccessKey>::namespaced(client.clone(), &ns);
 
-                let new_label = Patch::Apply(json!({
-                    "apiVersion": "deuxfleurs.fr/v0alpha",
-                    "kind": "AccessKey",
-                    "metadata": {
-                        "annotations": {
-                            "access-key/id": key.access_key_id.clone(),
-                        },
-                        "ownerReferences": [owner],
-                    },
-                }));
+                let new_label = Patch::Apply(
+                    ObjectMeta {
+                        annotations: Some(BTreeMap::from([(
+                            "access-key/id".into(),
+                            access_key_id.clone(),
+                        )])),
+
+                        ..Default::default()
+                    }
+                    .into_request_partial::<AccessKey>(),
+                );
 
                 // Actually create the k8s secret
                 {
@@ -281,8 +288,8 @@ impl Garage {
                             )
                         },
                         string_data: Some(BTreeMap::from([
-                            ("access-key".into(), key.access_key_id.clone().unwrap()),
-                            ("secret-key".into(), key.secret_access_key.clone().unwrap()),
+                            ("access-key".into(), access_key_id.clone()),
+                            ("secret-key".into(), secret_access_key),
                         ])),
 
                         ..Default::default()
@@ -312,7 +319,7 @@ impl Garage {
 
                 // Now update the info for the newly created bucket
                 admin
-                    .update_access_key(&owning_bucket_id, &key.access_key_id.unwrap(), &ak.spec)
+                    .update_access_key(&owning_bucket_id, &access_key_id, &ak.spec)
                     .await
             });
 
