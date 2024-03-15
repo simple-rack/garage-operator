@@ -3,9 +3,10 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// A bucket in a garage instance
+use super::NamespacedReference;
+
+/// A bucket in a garage instance.
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
-#[cfg_attr(test, derive(Default))]
 #[kube(
     kind = "Bucket",
     group = "deuxfleurs.fr",
@@ -18,20 +19,38 @@ use serde::{Deserialize, Serialize};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BucketSpec {
-    pub garage_ref: String,
+    /// A reference to the garage instance for this bucket.
+    pub garage_ref: NamespacedReference,
+
+    /// Quotas for this bucket.
+    #[serde(default)]
     pub quotas: BucketQuotas,
 }
 
+/// Quotas for a bucket.
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct BucketQuotas {
+    /// The max size any single file.
     pub max_size: Option<Quantity>,
+
+    /// The maximum amount of objects allowed.
     pub max_object_count: Option<usize>,
 }
 
+/// The status of a bucket
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema, PartialEq)]
 pub enum BucketStatus {
+    /// The bucket is in the process of being created.
     #[default]
     Creating,
+
+    /// Configuration changes are being applied.
+    Configuring,
+
+    /// The bucket is ready to operate.
     Ready,
+
+    /// The bucket instance encountered an error.
+    Errored,
 }

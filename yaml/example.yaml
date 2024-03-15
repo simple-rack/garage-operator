@@ -61,7 +61,7 @@ metadata:
   name: garage
   namespace: garage
 spec:
-  autolayout: true
+  autoLayout: true
   config:
     ports:
       admin: 8000
@@ -72,14 +72,16 @@ spec:
     replicationMode: none
   secrets:
     admin:
-      secretName: garage-admin-manual.key
+      name: garage-admin-manual.key
     rpc:
-      secretName: garage-rpc-manual.key
+      name: garage-rpc-manual.key
   storage:
-    data:
-      existingClaim: garage-data-storage
     meta:
-      existingClaim: garage-meta-storage
+      name: garage-meta-storage
+      namespace: garage
+    data:
+    - name: garage-data-storage
+      namespace: garage
 ---
 apiVersion: deuxfleurs.fr/v0alpha
 kind: Bucket
@@ -87,7 +89,9 @@ metadata:
   name: music
   namespace: tenant
 spec:
-  garageRef: garage/garage
+  garageRef:
+    name: garage
+    namespace: garage
   quotas:
     maxSize: 5Mi
 ---
@@ -97,8 +101,13 @@ metadata:
   name: music-reader
   namespace: tenant
 spec:
-  bucketRef: tenant/music
-  garageRef: garage/garage
+  bucketRef:
+    name: music
+    namespace: tenant
+  garageRef:
+    name: garage
+    namespace: garage
   permissions:
     read: true
-  secretRef: music-reader.key
+  secretRef:
+    name: music-reader.key

@@ -29,42 +29,81 @@ spec:
     name: v0alpha
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for AccessKeySpec via `CustomResource`
+        description: An access key for a particular bucket
         properties:
           spec:
-            description: A bucket in a garage instance
+            description: Specification for an access key for a particular bucket
             properties:
               bucketRef:
-                type: string
+                description: A reference to an existing bucket.
+                properties:
+                  name:
+                    description: The name of the resource
+                    type: string
+                  namespace:
+                    description: The containing namespace.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               garageRef:
-                type: string
+                description: A reference to an existing garage.
+                properties:
+                  name:
+                    description: The name of the resource
+                    type: string
+                  namespace:
+                    description: The containing namespace.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               permissions:
+                description: Permissions associated with the key.
                 properties:
                   owner:
-                    nullable: true
+                    default: false
+                    description: Allow modifying the configuration of a bucket.
                     type: boolean
                   read:
-                    nullable: true
+                    default: false
+                    description: Allow reading files from a bucket.
                     type: boolean
                   write:
-                    nullable: true
+                    default: false
+                    description: Allow writing files to a bucket.
                     type: boolean
                 type: object
               secretRef:
-                description: Optionally set the name of the generated secret. The default is NAME.BUCKET.GARAGE.key
-                nullable: true
-                type: string
+                description: Set the location of the generated secret.
+                properties:
+                  name:
+                    description: name is unique within a namespace to reference a secret resource.
+                    type: string
+                  namespace:
+                    description: namespace defines the space within which the secret name must be unique.
+                    type: string
+                type: object
             required:
             - bucketRef
             - garageRef
             - permissions
+            - secretRef
             type: object
           status:
+            description: The status of an access key.
             nullable: true
             properties:
               permissionsFriendly:
+                description: |-
+                  A friendly representation of the permissions granted to this key.
+
+                  Format is RWO, where R is read, W is write, and O is owner. Missing permissions show as -.
                 type: string
               state:
+                description: The current state of the key
                 enum:
                 - Creating
                 - Ready
@@ -105,125 +144,178 @@ spec:
       jsonPath: .spec.config.replicationMode
       name: replication
       type: string
+    - description: garage capacity
+      jsonPath: .status.capacity
+      name: capacity
+      type: integer
     - description: garage status
-      jsonPath: .status
+      jsonPath: .status.state
       name: status
       type: string
     name: v0alpha
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for GarageSpec via `CustomResource`
+        description: A Garage server instance
         properties:
           spec:
-            description: |-
-              Generate the Kubernetes wrapper struct `Garage` from our Spec and Status struct
-
-              This provides a hook for generating the CRD yaml (in crdgen.rs)
+            description: Specification for a Garage server instance
             properties:
-              autolayout:
+              autoLayout:
+                default: false
+                description: |-
+                  Whether or not to auto-layout the garage instance
+
+                  Garage has a notion of layouts in order to allow instances to cluster up after the fact. While useful, this generally makes it more difficult to set up without manual intervention.
+
+                  If auto_layout is enabled, the operator will use the configuration supplied in config to automatically layout the garage instance for you.
                 type: boolean
               config:
-                nullable: true
+                default:
+                  ports:
+                    admin: 3903
+                    rpc: 3901
+                    s3Api: 3900
+                    s3Web: 3902
+                  region: garage
+                  replicationMode: none
+                description: |-
+                  The config for this garage instance.
+
+                  Most of these options are mirrored from the [official docs](https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/).
                 properties:
                   ports:
+                    default:
+                      admin: 3903
+                      rpc: 3901
+                      s3Api: 3900
+                      s3Web: 3902
+                    description: Listening port configuration
                     properties:
                       admin:
+                        default: 3903
+                        description: Port used for the [admin API](https://garagehq.deuxfleurs.fr/documentation/reference-manual/admin-api/)
                         format: uint16
                         minimum: 0.0
                         type: integer
                       rpc:
+                        default: 3901
+                        description: Port used for the inter-garage RPC.
                         format: uint16
                         minimum: 0.0
                         type: integer
                       s3Api:
+                        default: 3900
+                        description: Port used for handling S3 API traffic.
                         format: uint16
                         minimum: 0.0
                         type: integer
                       s3Web:
+                        default: 3902
+                        description: Port used for hosting buckets as web pages.
                         format: uint16
                         minimum: 0.0
                         type: integer
-                    required:
-                    - admin
-                    - rpc
-                    - s3Api
-                    - s3Web
                     type: object
                   region:
+                    default: garage
+                    description: |-
+                      The [S3 region](https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/#s3_region) for this instance.
+
+                      Must be the same when linking up separate instances.
                     type: string
                   replicationMode:
+                    default: none
+                    description: The type of [replication mode](https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/#replication_mode).
                     type: string
-                required:
-                - ports
-                - region
-                - replicationMode
                 type: object
               secrets:
-                nullable: true
+                default:
+                  admin: null
+                  rpc: null
+                description: Configuration for where to store the secrets needed for interacting with garage.
                 properties:
                   admin:
+                    description: Reference to the [admin API](https://garagehq.deuxfleurs.fr/documentation/reference-manual/admin-api/) secret.
                     nullable: true
                     properties:
-                      namespace:
-                        nullable: true
+                      name:
+                        description: name is unique within a namespace to reference a secret resource.
                         type: string
-                      secretName:
-                        nullable: true
+                      namespace:
+                        description: namespace defines the space within which the secret name must be unique.
                         type: string
                     type: object
                   rpc:
+                    description: Reference to the inter-garage RPC secret.
                     nullable: true
                     properties:
-                      namespace:
-                        nullable: true
+                      name:
+                        description: name is unique within a namespace to reference a secret resource.
                         type: string
-                      secretName:
-                        nullable: true
+                      namespace:
+                        description: namespace defines the space within which the secret name must be unique.
                         type: string
                     type: object
                 type: object
               storage:
-                nullable: true
+                description: The storage backing for this garage instance.
                 properties:
                   data:
-                    properties:
-                      existingClaim:
-                        nullable: true
-                        type: string
-                      size:
-                        nullable: true
-                        type: string
-                      storageClass:
-                        nullable: true
-                        type: string
-                    type: object
+                    description: List of backings to use for storing data.
+                    items:
+                      description: Reference to a namespaced object
+                      properties:
+                        name:
+                          description: The name of the resource
+                          type: string
+                        namespace:
+                          description: The containing namespace.
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    type: array
                   meta:
+                    description: Backing to use for storing block metadata.
                     properties:
-                      existingClaim:
-                        nullable: true
+                      name:
+                        description: The name of the resource
                         type: string
-                      size:
-                        nullable: true
+                      namespace:
+                        description: The containing namespace.
                         type: string
-                      storageClass:
-                        nullable: true
-                        type: string
+                    required:
+                    - name
+                    - namespace
                     type: object
                 required:
                 - data
                 - meta
                 type: object
             required:
-            - autolayout
+            - storage
             type: object
           status:
-            description: The status object of `Garage`
-            enum:
-            - Creating
-            - LayingOut
-            - Ready
+            description: The status of the garage instance
             nullable: true
-            type: string
+            properties:
+              capacity:
+                description: The total capacity of this instance
+                format: int64
+                type: integer
+              state:
+                description: The current state of the garage instance
+                enum:
+                - Creating
+                - LayingOut
+                - Ready
+                - Errored
+                type: string
+            required:
+            - capacity
+            - state
+            type: object
         required:
         - spec
         title: Garage
@@ -266,30 +358,48 @@ spec:
         description: Auto-generated derived type for BucketSpec via `CustomResource`
         properties:
           spec:
-            description: A bucket in a garage instance
+            description: A bucket in a garage instance.
             properties:
               garageRef:
-                type: string
+                description: A reference to the garage instance for this bucket.
+                properties:
+                  name:
+                    description: The name of the resource
+                    type: string
+                  namespace:
+                    description: The containing namespace.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               quotas:
+                default:
+                  maxObjectCount: null
+                  maxSize: null
+                description: Quotas for this bucket.
                 properties:
                   maxObjectCount:
+                    description: The maximum amount of objects allowed.
                     format: uint
                     minimum: 0.0
                     nullable: true
                     type: integer
                   maxSize:
-                    description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
+                    description: The max size any single file.
                     nullable: true
                     type: string
                 type: object
             required:
             - garageRef
-            - quotas
             type: object
           status:
+            description: The status of a bucket
             enum:
             - Creating
+            - Configuring
             - Ready
+            - Errored
             nullable: true
             type: string
         required:
