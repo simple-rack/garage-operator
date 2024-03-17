@@ -23,21 +23,32 @@ pub enum Error {
     SerializationError(#[source] serde_json::Error),
 
     #[error("Kube Error: {0}")]
-    KubeError(#[source] kube::Error),
+    KubeError(#[from] kube::Error),
 
     #[error("Finalizer Error: {0}")]
     // NB: awkward type because finalizer::Error embeds the reconciler error (which is this)
     // so boxing this error to break cycles
     FinalizerError(#[source] Box<kube::runtime::finalizer::Error<Error>>),
 
-    #[error("IllegalGarage")]
-    IllegalGarage,
+    #[error("invalid configuration for garage '{0}': {1}")]
+    IllegalGarage(String, String),
     #[error("IllegalBucket")]
     IllegalBucket,
+
+    #[error("specified source does not exist: {0}")]
+    MissingDataSource(String),
+
+    #[error("specified secret is missing '{0}'")]
+    MissingSecret(String),
+
+    #[error("specified secret is missing data '{0}'")]
+    MissingSecretData(String),
 
     #[error("Network error: {0}")]
     NetworkError(#[from] progenitor_client::Error),
 }
+
+/// Alias for the common error type
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Error {

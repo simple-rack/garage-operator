@@ -134,7 +134,11 @@ impl GarageController {
                         .within(&access_key.spec().garage_ref.namespace),
                 )
             })
-            .run(reconcile, error_policy, self.state.to_context(client, garage_version))
+            .run(
+                reconcile,
+                error_policy,
+                self.state.to_context(client, garage_version),
+            )
             .filter_map(|x| async move { Result::ok(x) })
             .for_each(|_| futures::future::ready(()))
             .await;
@@ -153,6 +157,7 @@ async fn reconcile(garage: Arc<Garage>, ctx: Arc<Context>) -> Result<Action> {
             .read()
             .await
             .recorder(ctx.client.clone(), &garage);
+
         // Garage doesn't have any real cleanup, so we just publish an event
         recorder
             .publish(Event {
@@ -162,8 +167,8 @@ async fn reconcile(garage: Arc<Garage>, ctx: Arc<Context>) -> Result<Action> {
                 action: "Deleting".into(),
                 secondary: None,
             })
-            .await
-            .map_err(Error::KubeError)?;
+            .await?;
+
         Ok(Action::await_change())
     }
 
@@ -175,15 +180,18 @@ async fn reconcile(garage: Arc<Garage>, ctx: Arc<Context>) -> Result<Action> {
     let _timer = ctx.metrics.count_and_measure();
     ctx.diagnostics.write().await.last_event = Utc::now();
 
-    let garages_handle: Api<Garage> = Api::namespaced(ctx.client.clone(), garage.namespace().unwrap().as_str());
+    let garages_handle: Api<Garage> =
+        Api::namespaced(ctx.client.clone(), garage.namespace().unwrap().as_str());
 
-    info!(r#"Starting Garage reconciliation for "{}/{}""#, garage.namespace().unwrap(), garage.name_any());
+    let name = garage.name_any();
+    let namespace = garage
+        .namespace()
+        .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".into()))?;
+
+    info!(r#"Starting Garage reconciliation for "{namespace}/{name}""#);
     finalizer(&garages_handle, GARAGE_FINALIZER, garage, |event| async {
         match event {
-            Finalizer::Apply(g) => g
-                .reconcile(ctx.clone())
-                .await
-                .map_err(|_| Error::IllegalGarage),
+            Finalizer::Apply(g) => g.reconcile(ctx.clone()).await,
             Finalizer::Cleanup(g) => cleanup(g, ctx.clone()).await,
         }
     })

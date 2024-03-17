@@ -11,9 +11,7 @@ use k8s_openapi::{
             SecretVolumeSource, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
         },
     },
-    apimachinery::pkg::{
-        apis::meta::v1::LabelSelector, util::intstr::IntOrString,
-    },
+    apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
 };
 use kube::{
     api::{Patch, PatchParams},
@@ -40,25 +38,25 @@ impl Reconcile for Garage {
     async fn reconcile(&self, context: Arc<Context>) -> Result<Action, Error> {
         // Extract needed info from this garage
         let name = self.name_any();
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".into()))?;
 
         // Handle for updating this garage
-        let garage_handle: Api<Garage> =
-            Api::namespaced(context.client.clone(), self.namespace().unwrap().as_str());
+        let garage_handle: Api<Garage> = Api::namespaced(context.client.clone(), &namespace);
 
-        // If we haven't made the garage instance yet, do that now
+        // Get the last known status of this garage, using the default if not present
         let status = self.status.clone().unwrap_or_default();
+
+        // Always deploy all of the needed resources, as they are idempotent
+        self.deploy_resources(context.clone()).await?;
 
         // Handle what we need for now
         let (requeue, next_state): (Duration, GarageState) = match status.state {
             // If we need to create the instance, then do so now
             GarageState::Creating => {
-                info!(
-                    r#"Creating garage "{}/{}"#,
-                    self.namespace().unwrap(),
-                    self.name_any()
-                );
+                info!(r#"Creating garage "{}/{}"#, namespace, name);
 
-                self.deploy_resources(context.clone()).await?;
                 let next_state = if self.spec.auto_layout {
                     GarageState::LayingOut
                 } else {
@@ -71,7 +69,7 @@ impl Reconcile for Garage {
             // If we need to layout the garage instance, then attempt to do so now
             GarageState::LayingOut => {
                 // Actually layout the instance
-                let admin = GarageAdmin::try_from_garage(self, context.clone()).await?;
+                let admin = self.create_admin(context.clone()).await?;
                 let done = admin.layout_instance(status.capacity).await?;
 
                 // Keep trying to layout the server until it completes
@@ -80,7 +78,7 @@ impl Reconcile for Garage {
                     if done {
                         GarageState::Ready
                     } else {
-                        status.state
+                        GarageState::LayingOut
                     },
                 )
             }
@@ -110,11 +108,8 @@ impl Reconcile for Garage {
                 "capacity": capacity,
             },
         }));
-        let ps = PatchParams::apply("garage-operator").force();
-        let _o = garage_handle
-            .patch_status(&name, &ps, &new_status)
-            .await
-            .map_err(Error::KubeError)?;
+        let ps = PatchParams::apply("garage-operator").force(); // TODO: Why is this force?
+        let _o = garage_handle.patch_status(&name, &ps, &new_status).await?;
 
         // If no events were received, check back every 5 minutes
         Ok(Action::requeue(requeue))
@@ -134,10 +129,47 @@ impl Reconcile for Garage {
 }
 
 impl Garage {
+    async fn create_admin(&self, context: Arc<Context>) -> Result<GarageAdmin, Error> {
+        // Fetch the garage admin secret token from k8s
+        let token = {
+            let namespace = self.namespace().ok_or(Error::IllegalGarage(
+                self.name_any(),
+                "missing namespace".into(),
+            ))?;
+            let default_name = self.prefixed_name("admin.key");
+            let admin_token_name = self
+                .spec
+                .secrets
+                .admin
+                .as_ref()
+                .and_then(|a| a.name.as_ref())
+                .unwrap_or(&default_name);
+
+            let secrets = Api::<Secret>::namespaced(context.client.clone(), &namespace);
+
+            let secret = secrets
+                .get_opt(&admin_token_name)
+                .await?
+                .ok_or_else(|| Error::MissingSecret(admin_token_name.clone()))?;
+            let token = secret
+                .data
+                .ok_or_else(|| Error::MissingSecretData(admin_token_name.clone()))?;
+            let token = token
+                .get("key")
+                .ok_or_else(|| Error::MissingSecretData(admin_token_name.clone()))?;
+
+            String::from_utf8(token.0.clone()).unwrap()
+        };
+
+        // Construct the admin API with our secret
+        Ok(GarageAdmin::with_secret(&self, &token)?)
+    }
+
+    /// Create a [ConfigMap] for storing the garage's configuration
     async fn create_config(&self, context: Arc<Context>) -> Result<(), Error> {
         let client = context.client.clone();
-        let config = self.spec.config.clone();
-        let ports = config.ports;
+        let config = &self.spec.config;
+        let ports = &config.ports;
 
         // Fetch info about the meta and data mounts
         let data_sources = self.get_capacities(context.clone()).await?;
@@ -188,9 +220,12 @@ impl Garage {
             replication_mode = config.replication_mode,
         };
 
+        // Make the ConfigMap for the config
         let owner = self.controller_owner_ref(&()).unwrap();
         let name = self.prefixed_name("config");
-        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".to_string()))?;
         let cm = ConfigMap {
             metadata: meta! { owners: vec![owner], name: Some(name.clone()) },
             data: Some(BTreeMap::from([("garage.toml".into(), garage_config)])),
@@ -199,25 +234,24 @@ impl Garage {
             immutable: None,
         };
 
+        // Apply the config
         let configs = Api::<ConfigMap>::namespaced(client.clone(), &namespace);
         let params = PatchParams::apply("garage-operator");
         let patch = Patch::Apply(cm);
-        configs
-            .patch(&name, &params, &patch)
-            .await
-            .map_err(Error::KubeError)?;
+        configs.patch(&name, &params, &patch).await?;
 
         Ok(())
     }
 
+    /// Create the main deployment for running garage using the official docker container
     async fn create_deployment(&self, context: Arc<Context>) -> Result<(), Error> {
         let client = &context.client;
 
+        // Extract needed info from the garage instance
         let name = self.name_any();
-        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
-
-        let labels = labels! { instance: name.clone() };
-        let owner = self.controller_owner_ref(&()).unwrap();
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".into()))?;
 
         let storage = &self.spec.storage;
         let config = &self.spec.config;
@@ -230,6 +264,11 @@ impl Garage {
             ("admin", ports.admin),
         ];
 
+        // Generate metadata needed for managing the deployment through the operator
+        let labels = labels! { instance: name.clone() };
+        let owner = self.controller_owner_ref(&()).unwrap();
+
+        // Create the deployment
         let deployment_data = Deployment {
             metadata: meta! {
                 owners: vec![owner.clone()],
@@ -242,11 +281,14 @@ impl Garage {
                     match_expressions: None,
                 },
                 template: PodTemplateSpec {
-                    metadata: Some(meta! { owners: vec![owner], labels: Some(labels.clone()) }),
+                    metadata: Some(meta! { owners: vec![owner], labels: Some(labels) }),
                     spec: Some(PodSpec {
+                        // Use the official container from garage
                         containers: vec![Container {
                             image: Some(format!("dxflrs/garage:{}", context.garage_version)),
                             name: "garage".into(),
+
+                            // Export the ports that we need
                             ports: Some(
                                 service_ports
                                     .into_iter()
@@ -257,8 +299,10 @@ impl Garage {
                                     })
                                     .collect(),
                             ),
+
+                            // Mount the needed secrets, config, and volumes
                             volume_mounts: Some(
-                                vec![
+                                [
                                     vec![
                                         VolumeMount {
                                             name: "config".into(),
@@ -301,11 +345,13 @@ impl Garage {
                                 ]
                                 .concat(),
                             ),
-
                             ..Default::default()
                         }],
+
+                        // Inform the container as to which volumes will be used
+                        // and how they are mapped to existing resources
                         volumes: Some(
-                            vec![
+                            [
                                 vec![
                                     Volume {
                                         name: "config".into(),
@@ -351,7 +397,7 @@ impl Garage {
                                         name: "meta-pvc".into(),
                                         persistent_volume_claim: Some(
                                             PersistentVolumeClaimVolumeSource {
-                                                claim_name: storage.meta.name.clone(),
+                                                claim_name: storage.meta.clone(),
                                                 read_only: None,
                                             },
                                         ),
@@ -367,7 +413,7 @@ impl Garage {
                                         name: format!("data-pvc-{index}"),
                                         persistent_volume_claim: Some(
                                             PersistentVolumeClaimVolumeSource {
-                                                claim_name: d.name.clone(),
+                                                claim_name: d.clone(),
                                                 read_only: None,
                                             },
                                         ),
@@ -386,13 +432,11 @@ impl Garage {
             ..Default::default()
         };
 
+        // Apply the deployment
         let deployments = Api::<Deployment>::namespaced(client.clone(), &namespace);
         let params = PatchParams::apply("garage-operator");
         let patch = Patch::Apply(deployment_data);
-        deployments
-            .patch(&name, &params, &patch)
-            .await
-            .map_err(Error::KubeError)?;
+        deployments.patch(&name, &params, &patch).await?;
 
         Ok(())
     }
@@ -400,29 +444,38 @@ impl Garage {
     /// Optionally generates the needed secrets for this instance of a garage.
     ///
     /// Secrets can be also manually specified in the spec, which allows for the
-    /// user to manually specify the secrets, if necessary.
+    /// user to provide the secrets, if necessary.
     async fn create_secrets(&self, context: Arc<Context>) -> Result<(), Error> {
         let client = &context.client;
-        let namespace = self.namespace().ok_or(Error::IllegalGarage)?;
 
+        // Extract needed info from the garage
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(self.name_any(), "missing namespace".into()))?;
         let secret_references = &self.spec.secrets;
-        let secrets = Api::<Secret>::namespaced(client.clone(), &namespace);
         let owner = self.controller_owner_ref(&()).unwrap();
 
+        // Get an API handle over all secrets in the target namespace
+        let secrets_handle = Api::<Secret>::namespaced(client.clone(), &namespace);
+
+        // Specify the secrets that we either need to generate, if not overridden by the config
         let needed_secrets = [
             (&secret_references.admin, self.prefixed_name("admin.key")),
             (&secret_references.rpc, self.prefixed_name("rpc.key")),
         ];
 
+        // Generate the secrets
         for (reference, secret_id) in needed_secrets {
-            // Skip creating the secret if there is a valid entry for it in the CRD
-            if reference.is_some() {
+            // Skip creating the secret if there is a valid entry for it in the CRD or if
+            // it was already generated
+            if reference.is_some() || secrets_handle.get_opt(&secret_id).await?.is_some() {
                 continue;
             }
 
             // Garage RPC requires 32 bytes of hex, so we'll just default to this for all secrets
             let secret_value = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
 
+            // Generate the secret
             let secret = Secret {
                 metadata: meta! { owners: vec![owner.clone()], name: Some(secret_id.clone()) },
                 string_data: Some(BTreeMap::from([("key".into(), secret_value)])),
@@ -430,14 +483,13 @@ impl Garage {
                 ..Default::default()
             };
 
-            secrets
+            secrets_handle
                 .patch(
                     &secret_id,
                     &PatchParams::apply("garage-operator"),
                     &Patch::Apply(secret),
                 )
-                .await
-                .map_err(Error::KubeError)?;
+                .await?;
         }
 
         Ok(())
@@ -447,6 +499,13 @@ impl Garage {
     async fn create_services(&self, context: Arc<Context>) -> Result<(), Error> {
         let client = context.client.clone();
 
+        // Extract needed info from the garage
+        let name = self.name_any();
+        let service_name = self.prefixed_name("api");
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".into()))?;
+        let owner = self.controller_owner_ref(&()).unwrap();
         let ports = &self.spec.config.ports;
         let garage_services = [
             ("admin", ports.admin),
@@ -455,20 +514,18 @@ impl Garage {
             ("s3-web", ports.s3_web),
         ];
 
-        let services =
-            Api::<Service>::namespaced(client, &self.namespace().ok_or(Error::IllegalGarage)?);
-        let owner = self.controller_owner_ref(&()).unwrap();
-        let name = self.prefixed_name("api");
+        // Get an API handle to the services
+        let services_handle = Api::<Service>::namespaced(client, &namespace);
 
-        let params = PatchParams::apply("garage-operator");
-        let patch = Patch::Apply(Service {
+        // Generate the service
+        let service = Service {
             metadata: meta! {
                 owners: vec![owner],
-                name: Some(name.clone()),
-                labels: Some(labels! { instance: self.name_any() })
+                name: Some(service_name.clone()),
+                labels: Some(labels! { instance: name.clone() })
             },
             spec: Some(ServiceSpec {
-                selector: Some(labels! { instance: self.name_any() }),
+                selector: Some(labels! { instance: name.clone() }),
                 ports: Some(
                     garage_services
                         .into_iter()
@@ -486,12 +543,14 @@ impl Garage {
                 ..Default::default()
             }),
             status: None,
-        });
+        };
 
-        services
-            .patch(&name, &params, &patch)
-            .await
-            .map_err(|e| Error::KubeError(e))?;
+        // Apply the service
+        let patch = Patch::Apply(service);
+        let params = PatchParams::apply("garage-operator");
+        services_handle
+            .patch(&service_name, &params, &patch)
+            .await?;
 
         Ok(())
     }
@@ -503,15 +562,22 @@ impl Garage {
     ) -> Result<Vec<ParsedQuantity>, Error> {
         let client = context.client.clone();
 
+        let name = self.name_any();
+        let namespace = self
+            .namespace()
+            .ok_or_else(|| Error::IllegalGarage(name, "missing namespace".into()))?;
         let sources = &self.spec.storage.data;
-        let mut source_info = Vec::with_capacity(sources.len());
+
+        let api = Api::<PersistentVolumeClaim>::namespaced(client.clone(), &namespace);
 
         // Fetch the pvc info for each source
+        let mut source_info = Vec::with_capacity(sources.len());
         for source in sources {
-            let api = Api::<PersistentVolumeClaim>::namespaced(client.clone(), &source.namespace);
-
             info!(r#"Fetching info for source "{source}""#);
-            let info = api.get(&source.name).await.map_err(Error::KubeError)?;
+            let info = api
+                .get_opt(&source)
+                .await?
+                .ok_or(Error::MissingDataSource(source.clone()))?;
 
             // TODO: Is this what we should do here?
             let capacity: ParsedQuantity = info

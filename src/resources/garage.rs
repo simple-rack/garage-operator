@@ -3,8 +3,6 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::NamespacedReference;
-
 /// Specification for a Garage server instance
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
 #[kube(
@@ -17,7 +15,7 @@ use super::NamespacedReference;
     printcolumn = r#"{ "name": "region", "type": "string", "description": "configured region", "jsonPath": ".spec.config.region" }"#,
     printcolumn = r#"{ "name": "replication", "type": "string", "description": "configured replication mode", "jsonPath": ".spec.config.replicationMode" }"#,
     printcolumn = r#"{ "name": "capacity", "type": "integer", "description": "garage capacity", "jsonPath": ".status.capacity" }"#,
-    printcolumn = r#"{ "name": "status", "type": "string", "description": "garage status", "jsonPath": ".status.state" }"#,
+    printcolumn = r#"{ "name": "status", "type": "string", "description": "garage status", "jsonPath": ".status.state" }"#
 )]
 #[serde(rename_all = "camelCase")]
 pub struct GarageSpec {
@@ -84,10 +82,10 @@ pub struct GarageSecrets {
 #[serde(rename_all = "camelCase")]
 pub struct GarageStorage {
     /// Backing to use for storing block metadata.
-    pub meta: NamespacedReference,
+    pub meta: String,
 
     /// List of backings to use for storing data.
-    pub data: Vec<NamespacedReference>,
+    pub data: Vec<String>,
 }
 
 /// Port configuration of a Garage instance.
@@ -114,7 +112,7 @@ pub struct GarageStatus {
     pub capacity: i64,
 
     /// The current state of the garage instance
-    pub state: GarageState
+    pub state: GarageState,
 }
 
 /// The possible states of a `Garage`

@@ -1,10 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use k8s_openapi::api::core::v1::Secret;
-use kube::{Api, ResourceExt};
+use kube::ResourceExt;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 
-use crate::{reconcilers::Context, resources::Garage, Error, Result};
+use crate::{resources::Garage, Result};
 
 use self::client::types::{LayoutVersion, NodeRoleChange, NodeRoleUpdate};
 
@@ -20,35 +19,6 @@ pub struct GarageAdmin<'a> {
 }
 
 impl<'a> GarageAdmin<'a> {
-    pub async fn try_from_garage(garage: &Garage, context: Arc<Context>) -> Result<GarageAdmin> {
-        let token = {
-            let default_name = garage.prefixed_name("admin.key");
-            let admin_token_name = garage
-                .spec
-                .secrets
-                .admin
-                .as_ref()
-                .and_then(|a| a.name.as_ref())
-                .unwrap_or(&default_name);
-
-            let secrets = Api::<Secret>::namespaced(
-                context.client.clone(),
-                &garage.namespace().ok_or(Error::IllegalGarage)?,
-            );
-
-            let secret = secrets
-                .get(&admin_token_name)
-                .await
-                .map_err(Error::KubeError)?;
-            let token = secret.data.ok_or(Error::IllegalGarage)?;
-            let token = token.get("key").ok_or(Error::IllegalGarage)?;
-
-            String::from_utf8(token.0.clone()).unwrap()
-        };
-
-        Ok(GarageAdmin::with_secret(&garage, &token)?)
-    }
-
     pub fn with_secret(garage: &'a Garage, token: &str) -> Result<GarageAdmin<'a>> {
         // All requests must be authenticated using bearer auth
         let headers = {

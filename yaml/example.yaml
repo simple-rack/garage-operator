@@ -76,12 +76,9 @@ spec:
     rpc:
       name: garage-rpc-manual.key
   storage:
-    meta:
-      name: garage-meta-storage
-      namespace: garage
+    meta: garage-meta-storage
     data:
-    - name: garage-data-storage
-      namespace: garage
+    - garage-data-storage
 ---
 apiVersion: deuxfleurs.fr/v0alpha
 kind: Bucket
