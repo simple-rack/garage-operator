@@ -1,8 +1,13 @@
 {
-    "editor.formatOnSave": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
     "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix",
-    "nix.formatterPath": "alejandra"
+    "nix.formatterPath": "alejandra",
+    "cSpell.userWords": [
+        "deuxfleurs",
+        "finalizer",
+        "openapi",
+        "schemars",
+    ]
 }

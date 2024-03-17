@@ -1,10 +1,12 @@
 use thiserror::Error;
 
+pub mod operator;
+pub mod reconcilers;
+
 /// Expose all controller components used by main
 pub mod resources;
 
-// Internal only
-mod garage_admin;
+mod admin_api;
 
 /// Log and trace integrations
 pub mod telemetry;
@@ -43,3 +45,43 @@ impl Error {
         format!("{self:?}").to_lowercase()
     }
 }
+
+/// Create a meta structure for resources with common options
+macro_rules! meta {
+    (owners: $owners:expr) => {{
+        ::kube::core::ObjectMeta {
+            owner_references: Some($owner),
+
+            ..Default::default()
+        }
+    }};
+
+    (owners: $owners:expr, $($lhs:ident : $rhs:expr),*) => {{
+        ::kube::core::ObjectMeta {
+            owner_references: Some($owners),
+            $($lhs : $rhs),*,
+
+            ..Default::default()
+        }
+    }};
+}
+pub(crate) use meta;
+
+/// Create common labels for resources managed by garage-operator
+macro_rules! labels {
+    (instance: $name:expr) => {{
+        ::std::collections::BTreeMap::from_iter([
+            ("app.kubernetes.io/name".into(), $name),
+            ("app.kubernetes.io/version".into(), crate::GARAGE_VERSION.into()),
+        ])
+    }};
+
+    (instance: $name:expr, $($lhs:ident : $rhs:expr),*) => {{
+        ::std::collections::BTreeMap::from_iter([
+            ("app.kubernetes.io/name".into(), $name),
+            ("app.kubernetes.io/version".into(), crate::GARAGE_VERSION.into()),
+            $(($lhs, $rhs))*,
+        ])
+    }};
+}
+pub(crate) use labels;

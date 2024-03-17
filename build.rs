@@ -1,7 +1,7 @@
 //! Auto generate a garage admin client in rust based on the OpenAPI spec.
 
 fn main() {
-    let admin_api = "./spec/garage-admin-v0.yml";
+    let admin_api = "./spec/garage-admin-v1.yml";
     println!("cargo:rerun-if-changed={admin_api}");
 
     let file = std::fs::File::open(admin_api).expect("could not open Garage admin OpenAPI spec");
