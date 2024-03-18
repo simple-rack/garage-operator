@@ -4,13 +4,13 @@ info:
   title: Garage Administration API v0+garage-v0.9.0
   description: |
     Administrate your Garage cluster programatically, including status, layout, keys, buckets, and maintainance tasks.
-    
+
     *Disclaimer: The API is not stable yet, hence its v0 tag. The API can change at any time, and changes can include breaking backward compatibility. Read the changelog and upgrade your scripts before upgrading. Additionnaly, this specification is very early stage and can contain bugs, especially on error return codes/types that are not tested yet. Do not expect a well finished and polished product!*
-paths: 
+paths:
   /health:
     get:
       tags:
-        - Nodes               
+        - Nodes
       operationId: "GetHealth"
       summary: "Cluster health report"
       description: |
@@ -61,7 +61,7 @@ paths:
                     example: 256
   /status:
     get:
-      tags: 
+      tags:
         - Nodes
       operationId: "GetNodes"
       summary: "Describe cluster"
@@ -86,7 +86,7 @@ paths:
                 type: object
                 required: [ node, garageVersion, garageFeatures, rustVersion, dbEngine, knownNodes, layout ]
                 properties:
-                  node: 
+                  node:
                     type: string
                     example: "ec79480e0ce52ae26fd00c9da684e4fa56658d9c64cdcecb094e936de0bfe71f"
                   garageVersion:
@@ -134,7 +134,7 @@ paths:
                       $ref: '#/components/schemas/NodeNetworkInfo'
                   layout:
                     $ref: '#/components/schemas/ClusterLayout'
-                          
+
   /connect:
     post:
       tags:
@@ -154,7 +154,7 @@ paths:
                 - "4a6ae5a1d0d33bf895f5bb4f0a418b7dc94c47c0dd2eb108d1158f3c8f60b0ff@10.0.0.12:3901"
               items:
                 type: string
-                
+
       responses:
         '500':
           description: |
@@ -195,7 +195,7 @@ paths:
         Returns the cluster's current layout, including:
           - Currently configured cluster layout
           - Staged changes to the cluster layout
-          
+
         *Capacity is given in bytes*
         *The info returned by this endpoint is a subset of the info returned by `GET /status`.*
       responses:
@@ -211,7 +211,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterLayout'
-                
+
     post:
       tags:
         - Layout
@@ -230,7 +230,7 @@ paths:
           To add a new node to the layout or to change the configuration of an existing node, simply set the values you want (`zone`, `capacity`, and `tags`).
           To remove a node, simply pass the `remove: true` field.
           This logic is represented in OpenAPI with a "One Of" object.
-        
+
           Contrary to the CLI that may update only a subset of the fields capacity, zone and tags, when calling this API all of these values must be specified.
         required: true
         content:
@@ -258,7 +258,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterLayout'
-          
+
   /layout/apply:
     post:
       tags:
@@ -277,7 +277,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LayoutVersion'
-              
+
       responses:
         '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
@@ -310,7 +310,7 @@ paths:
                   layout:
                     $ref: '#/components/schemas/ClusterLayout'
 
-          
+
   /layout/revert:
     post:
       tags:
@@ -334,7 +334,7 @@ paths:
           description: "Invalid syntax or requested change"
         '200':
           description: "The staged layout has been cleared, you can start again sending modification from a fresh copy with `POST /layout`."
-          
+
   "/key?list":
     get:
       tags:
@@ -377,7 +377,7 @@ paths:
         description: |
           You can set a friendly name for this key.
           If you don't want to, you can set the name to `null`.
-        
+
           *Note: the secret key is returned in the response.*
         required: true
         content:
@@ -408,7 +408,7 @@ paths:
       operationId: "GetKey"
       summary: "Get key information"
       description: |
-        Return information about a specific key like its identifiers, its permissions and buckets on which it has permissions. 
+        Return information about a specific key like its identifiers, its permissions and buckets on which it has permissions.
         You can search by specifying the exact key identifier (`id`) or by specifying a pattern (`search`).
 
         For confidentiality reasons, the secret key is not returned by default: you must pass the `showSecretKey` query parameter to get it.
@@ -452,14 +452,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KeyInfo'
-              
+
     delete:
-      tags: 
+      tags:
         - Key
       operationId: "DeleteKey"
       summary: "Delete a key"
       description: |
-       Delete a key from the cluster. Its access will be removed from all the buckets. Buckets are not automatically deleted and can be dangling. You should manually delete them before. 
+       Delete a key from the cluster. Its access will be removed from all the buckets. Buckets are not automatically deleted and can be dangling. You should manually delete them before.
       parameters:
         - name: id
           in: query
@@ -474,7 +474,7 @@ paths:
         '200':
           description: "The key has been deleted"
 
-        
+
     post:
       tags:
         - Key
@@ -530,7 +530,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/KeyInfo'
 
-        
+
   /key/import:
     post:
       tags:
@@ -571,7 +571,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeyInfo' 
+                $ref: '#/components/schemas/KeyInfo'
 
   "/bucket?list":
     get:
@@ -593,7 +593,7 @@ paths:
                 type: array
                 example:
                   - id: "70dc3bed7fe83a75e46b66e7ddef7d56e65f3c02f9f80b6749fb97eccb5e1033"
-                    globalAliases: 
+                    globalAliases:
                       - "container_registry"
                   - id: "96470e0df00ec28807138daf01915cfda2bee8eccc91dea9558c0b4855b5bf95"
                     localAliases:
@@ -672,7 +672,7 @@ paths:
                           type: boolean
                           example: true
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "The payload is not formatted correctly"
@@ -702,7 +702,7 @@ paths:
           example: "b4018dc61b27ccb5c64ec1b24f53454bbbd180697c758c4d47a22a8921864a87"
           schema:
             type: string
-        - name: alias
+        - name: globalAlias
           in: query
           description: |
             The exact global alias of one of the existing buckets.
@@ -712,7 +712,7 @@ paths:
           schema:
             type: string
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '404':
           description: "Bucket not found"
@@ -742,7 +742,7 @@ paths:
           schema:
             type: string
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bucket is not empty"
@@ -752,7 +752,7 @@ paths:
           description: Bucket has been deleted
 
 
-      
+
     put:
       tags:
         - Bucket
@@ -777,7 +777,7 @@ paths:
           description: "The exact bucket identifier, a 32 bytes hexadecimal string"
           example: "b4018dc61b27ccb5c64ec1b24f53454bbbd180697c758c4d47a22a8921864a87"
           schema:
-            type: string       
+            type: string
       requestBody:
         description: |
           Requested changes on the bucket. Both root fields are optionals.
@@ -791,7 +791,7 @@ paths:
                 websiteAccess:
                   type: object
                   properties:
-                    enabled: 
+                    enabled:
                       type: boolean
                       example: true
                     indexDocument:
@@ -803,7 +803,7 @@ paths:
                 quotas:
                   type: object
                   properties:
-                    maxSize: 
+                    maxSize:
                       type: integer
                       format: int64
                       nullable: true
@@ -815,7 +815,7 @@ paths:
                       example: null
 
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your body."
@@ -875,7 +875,7 @@ paths:
                       type: boolean
                       example: true
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -935,7 +935,7 @@ paths:
                       type: boolean
                       example: true
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -970,7 +970,7 @@ paths:
           schema:
             type: string
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -1004,7 +1004,7 @@ paths:
             type: string
           example: my_documents
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -1045,7 +1045,7 @@ paths:
             type: string
           example: my_documents
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -1085,7 +1085,7 @@ paths:
           required: true
           example: my_documents
       responses:
-        '500': 
+        '500':
           description: "The server can not handle your request. Check your connectivity with the rest of the cluster."
         '400':
           description: "Bad request, check your request body"
@@ -1097,7 +1097,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BucketInfo'
-        
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1225,7 +1225,7 @@ components:
           type: integer
           #format: int64
           example: 13
-          
+
     KeyInfo:
       type: object
       properties:

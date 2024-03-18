@@ -18,7 +18,7 @@
       packages = rec {
         garage-operator = naersk-lib.buildPackage {
           pname = "garage-operator";
-          version = "0.2.0";
+          version = "0.2.1";
           src = ./.;
 
           nativeBuildInputs = with pkgs; [

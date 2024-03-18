@@ -2,8 +2,18 @@ apiVersion: v1
 entries:
   garage-operator:
   - apiVersion: v2
+    appVersion: 0.2.1
+    created: "2024-03-18T01:00:21.388484402-04:00"
+    description: Operator for the Garage S3 storage project.
+    digest: a6ea5fff7e8ad51767681008e0e307308deb29576ffea21e4abe0b4e96f5889b
+    name: garage-operator
+    type: application
+    urls:
+    - https://simple-rack.github.io/garage-operator/garage-operator-0.2.1.tgz
+    version: 0.2.1
+  - apiVersion: v2
     appVersion: 0.2.0
-    created: "2024-03-17T22:11:41.567164315-04:00"
+    created: "2024-03-18T01:00:21.388326029-04:00"
     description: Operator for the Garage S3 storage project.
     digest: 93e6770f1fcca5ba31d7b3ddd3d7643437032410d51874c59e17b0f7834eff71
     name: garage-operator
@@ -13,7 +23,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 0.1.3
-    created: "2024-03-17T22:11:41.566975775-04:00"
+    created: "2024-03-18T01:00:21.384104112-04:00"
     description: Operator for the Garage S3 storage project.
     digest: 75f40caecbd0d5fabfd5d8c1a2e22b7fc490ccfcf185ee12066980c687457d4c
     name: garage-operator
@@ -23,7 +33,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 0.1.2
-    created: "2024-03-17T22:11:41.566797494-04:00"
+    created: "2024-03-18T01:00:21.383077706-04:00"
     description: Operator for the Garage S3 storage project.
     digest: 8cd0aa50c4b17b9aeaa01b83e258ae5643ad920198efef868db5afe4b60aad2f
     name: garage-operator
@@ -33,7 +43,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: v0.1.1
-    created: "2024-03-17T22:11:41.566619264-04:00"
+    created: "2024-03-18T01:00:21.382452073-04:00"
     description: Operator for the Garage S3 storage project.
     digest: b7ecc1bb484d2516ddd52b5cab902539b1e07ae7dc1be34659bc98bff963dda3
     name: garage-operator
@@ -43,7 +53,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2024-03-17T22:11:41.566297097-04:00"
+    created: "2024-03-18T01:00:21.381487645-04:00"
     description: Operator for the Garage S3 storage project.
     digest: 7aa3efcb39ffaa22e94bff5a6bfc73c13f92048cd059ed03efdcdffab766e677
     name: garage-operator
@@ -51,4 +61,4 @@ entries:
     urls:
     - https://simple-rack.github.io/garage-operator/garage-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2024-03-17T22:11:41.563306942-04:00"
+generated: "2024-03-18T01:00:21.380431527-04:00"
