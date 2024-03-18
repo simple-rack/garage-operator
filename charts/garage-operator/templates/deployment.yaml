@@ -46,6 +46,8 @@ spec:
           value: "https://promstack-tempo.monitoring.svc.cluster.local:4317"
         - name: RUST_LOG
           value: "info,kube=debug,controller=debug"
+        - name: GARAGE_VERSION
+          value: "{{ .Values.garageVersion | default "v0.9.0" }}"
         readinessProbe:
           httpGet:
             path: /health

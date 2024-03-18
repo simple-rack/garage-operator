@@ -2,6 +2,8 @@ replicaCount: 1
 nameOverride: ""
 namespace: "default"
 
+garageVersion: "v0.9.0"
+
 image:
   repository: ghcr.io/simple-rack/garage-operator
   pullPolicy: IfNotPresent
