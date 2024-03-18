@@ -19,7 +19,7 @@ spec:
       name: bucket
       type: string
     - description: permissions for this bucket
-      jsonPath: .state.permissionsFriendly
+      jsonPath: .status.permissionsFriendly
       name: permissions
       type: string
     - description: bucket status
@@ -96,6 +96,9 @@ spec:
             description: The status of an access key.
             nullable: true
             properties:
+              id:
+                description: The garage-internal ID
+                type: string
               permissionsFriendly:
                 description: |-
                   A friendly representation of the permissions granted to this key.
@@ -106,9 +109,12 @@ spec:
                 description: The current state of the key
                 enum:
                 - Creating
+                - Configuring
                 - Ready
+                - Errored
                 type: string
             required:
+            - id
             - permissionsFriendly
             - state
             type: object

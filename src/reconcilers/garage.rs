@@ -171,7 +171,7 @@ impl Garage {
             let secrets = Api::<Secret>::namespaced(context.client.clone(), &namespace);
 
             let secret = secrets
-                .get_opt(&admin_token_name)
+                .get_opt(admin_token_name)
                 .await?
                 .ok_or_else(|| Error::MissingSecret(admin_token_name.clone()))?;
             let token = secret
@@ -185,7 +185,7 @@ impl Garage {
         };
 
         // Construct the admin API with our secret
-        Ok(GarageAdmin::with_secret(&self, &token)?)
+        GarageAdmin::with_secret(self, &token)
     }
 
     /// Create a [ConfigMap] for storing the garage's configuration
@@ -337,20 +337,20 @@ impl Garage {
                                         VolumeMount {
                                             name: "admin-secret".into(),
                                             read_only: Some(true),
-                                            mount_path: format!("/secrets/admin.key"),
+                                            mount_path: "/secrets/admin.key".into(),
                                             sub_path: Some("key".into()),
                                             ..Default::default()
                                         },
                                         VolumeMount {
                                             name: "rpc-secret".into(),
                                             read_only: Some(true),
-                                            mount_path: format!("/secrets/rpc.key"),
+                                            mount_path: "/secrets/rpc.key".into(),
                                             sub_path: Some("key".into()),
                                             ..Default::default()
                                         },
                                         VolumeMount {
                                             name: "meta-pvc".into(),
-                                            mount_path: format!("/mnt/meta"),
+                                            mount_path: "/mnt/meta".into(),
                                             ..Default::default()
                                         },
                                     ],
@@ -448,7 +448,6 @@ impl Garage {
                         ),
                         ..Default::default()
                     }),
-                    ..Default::default()
                 },
                 ..Default::default()
             }),
@@ -598,7 +597,7 @@ impl Garage {
         for source in sources {
             info!(r#"Fetching info for source "{source}""#);
             let info = api
-                .get_opt(&source)
+                .get_opt(source)
                 .await?
                 .ok_or(Error::MissingDataSource(source.clone()))?;
 

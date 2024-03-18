@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 
 use crate::{operator::Diagnostics, Error, Metrics};
 
-// mod access_key;
+pub mod access_key;
 pub mod bucket;
 pub mod garage;
 
@@ -29,7 +29,7 @@ pub struct CommonContext {
 #[async_trait]
 pub(crate) trait Reconcile
 where
-    Self: CustomResourceExt + ResourceExt
+    Self: CustomResourceExt + ResourceExt,
 {
     type Context;
 

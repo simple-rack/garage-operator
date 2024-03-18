@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use k8s_openapi::api::core::v1::SecretReference;
 use kube::CustomResource;
 use schemars::JsonSchema;
@@ -15,7 +17,7 @@ use super::NamespacedReference;
     doc = "An access key for a particular bucket",
     namespaced,
     printcolumn = r#"{ "name": "bucket", "type": "string", "description": "owning bucket instance", "jsonPath": ".spec.bucketRef" }"#,
-    printcolumn = r#"{ "name": "permissions", "type": "string", "description": "permissions for this bucket", "jsonPath": ".state.permissionsFriendly" }"#,
+    printcolumn = r#"{ "name": "permissions", "type": "string", "description": "permissions for this bucket", "jsonPath": ".status.permissionsFriendly" }"#,
     printcolumn = r#"{ "name": "status", "type": "string", "description": "bucket status", "jsonPath": ".status.state" }"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -52,6 +54,9 @@ pub struct AccessKeyPermissions {
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessKeyStatus {
+    /// The garage-internal ID
+    pub id: String,
+
     /// The current state of the key
     pub state: AccessKeyState,
 
@@ -69,6 +74,20 @@ pub enum AccessKeyState {
     #[default]
     Creating,
 
+    /// The access key is being configured to work with a bucket
+    Configuring,
+
     /// The access key is ready for use.
     Ready,
+
+    /// The access key is in a state of error
+    Errored,
+}
+
+impl Display for AccessKeyPermissions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", if self.read { 'R' } else { '-' })?;
+        write!(f, "{}", if self.write { 'W' } else { '-' })?;
+        write!(f, "{}", if self.owner { 'O' } else { '-' })
+    }
 }

@@ -9,6 +9,7 @@ use serde_json::json;
 use tracing::info;
 
 use crate::{
+    reconcilers::access_key::AccessKeyContext,
     resources::{AccessKey, Bucket, BucketState, BucketStatus, Garage},
     Error,
 };
@@ -91,6 +92,29 @@ impl Reconcile for Bucket {
 
             // Apply all access keys once we are ready
             BucketState::Ready => {
+                // Get all buckets that we own and reconcile them
+                // TODO: Should we do this in parallel?
+                // TODO: Listing requires filtering until `selectableFields` is stabilised and added to k8s (v1.30 and beyond)
+                let owned_keys = access_key_handle
+                    .list(&ListParams::default())
+                    .await?
+                    .into_iter()
+                    .filter(|k| {
+                        k.spec.garage_ref.name == context.owner.name_any()
+                            && k.spec.garage_ref.namespace == context.owner.namespace().unwrap()
+                            && k.spec.bucket_ref.name == name
+                            && k.spec.bucket_ref.namespace == namespace
+                    });
+
+                let access_key_context = Arc::new(AccessKeyContext {
+                    common: context.common.clone(),
+                    owner: context.owner.clone(),
+                    bucket: self.clone(),
+                });
+                for access_key in owned_keys {
+                    access_key.reconcile(access_key_context.clone()).await?;
+                }
+
                 (
                     Duration::from_secs(60 * 60),
                     BucketStatus {

@@ -30,11 +30,14 @@ pub enum Error {
     // so boxing this error to break cycles
     FinalizerError(#[source] Box<kube::runtime::finalizer::Error<Error>>),
 
-    #[error("invalid configuration for garage '{0}': {1}")]
-    IllegalGarage(String, String),
+    #[error("invalid configuration for access key '{0}': {1}")]
+    IllegalAccessKey(String, String),
 
     #[error("invalid configuration for bucket '{0}': {1}")]
     IllegalBucket(String, String),
+
+    #[error("invalid configuration for garage '{0}': {1}")]
+    IllegalGarage(String, String),
 
     #[error("specified source does not exist: {0}")]
     MissingDataSource(String),
