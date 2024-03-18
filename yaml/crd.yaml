@@ -328,7 +328,7 @@ spec:
       name: quotas
       type: string
     - description: bucket status
-      jsonPath: .status
+      jsonPath: .status.state
       name: status
       type: string
     name: v0alpha
@@ -374,13 +374,23 @@ spec:
             type: object
           status:
             description: The status of a bucket
-            enum:
-            - Creating
-            - Configuring
-            - Ready
-            - Errored
             nullable: true
-            type: string
+            properties:
+              id:
+                description: The garage internal ID for this bucket
+                type: string
+              state:
+                description: The state of the bucket
+                enum:
+                - Creating
+                - Configuring
+                - Ready
+                - Errored
+                type: string
+            required:
+            - id
+            - state
+            type: object
         required:
         - spec
         title: Bucket

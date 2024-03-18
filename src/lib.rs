@@ -32,8 +32,9 @@ pub enum Error {
 
     #[error("invalid configuration for garage '{0}': {1}")]
     IllegalGarage(String, String),
-    #[error("IllegalBucket")]
-    IllegalBucket,
+
+    #[error("invalid configuration for bucket '{0}': {1}")]
+    IllegalBucket(String, String),
 
     #[error("specified source does not exist: {0}")]
     MissingDataSource(String),

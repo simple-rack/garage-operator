@@ -15,7 +15,7 @@ use super::NamespacedReference;
     namespaced,
     printcolumn = r#"{ "name": "garage", "type": "string", "description": "owning garage instance", "jsonPath": ".spec.garageRef" }"#,
     printcolumn = r#"{ "name": "quotas", "type": "string", "description": "quotas for this bucket", "jsonPath": ".spec.quotas" }"#,
-    printcolumn = r#"{ "name": "status", "type": "string", "description": "bucket status", "jsonPath": ".status" }"#
+    printcolumn = r#"{ "name": "status", "type": "string", "description": "bucket status", "jsonPath": ".status.state" }"#
 )]
 #[serde(rename_all = "camelCase")]
 pub struct BucketSpec {
@@ -38,9 +38,9 @@ pub struct BucketQuotas {
     pub max_object_count: Option<usize>,
 }
 
-/// The status of a bucket
+/// The possible states of a bucket
 #[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema, PartialEq)]
-pub enum BucketStatus {
+pub enum BucketState {
     /// The bucket is in the process of being created.
     #[default]
     Creating,
@@ -53,4 +53,14 @@ pub enum BucketStatus {
 
     /// The bucket instance encountered an error.
     Errored,
+}
+
+/// The status of a bucket
+#[derive(Deserialize, Serialize, Clone, Default, Debug, JsonSchema)]
+pub struct BucketStatus {
+    /// The garage internal ID for this bucket
+    pub id: String,
+
+    /// The state of the bucket
+    pub state: BucketState,
 }

@@ -14,7 +14,7 @@ use k8s_openapi::{
     apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
 };
 use kube::{
-    api::{Patch, PatchParams},
+    api::{ListParams, Patch, PatchParams},
     runtime::controller::Action,
     Api, Resource as _, ResourceExt as _,
 };
@@ -27,23 +27,26 @@ use uuid::Uuid;
 use crate::{
     admin_api::GarageAdmin,
     labels, meta,
-    resources::{Garage, GarageState},
+    resources::{Bucket, Garage, GarageState},
     Error,
 };
 
-use super::{Context, Reconcile};
+use super::{bucket::BucketContext, CommonContext as Context, Reconcile};
 
 #[async_trait]
 impl Reconcile for Garage {
-    async fn reconcile(&self, context: Arc<Context>) -> Result<Action, Error> {
+    type Context = Context;
+
+    async fn reconcile(&self, context: Arc<Self::Context>) -> Result<Action, Error> {
         // Extract needed info from this garage
         let name = self.name_any();
         let namespace = self
             .namespace()
             .ok_or_else(|| Error::IllegalGarage(name.clone(), "missing namespace".into()))?;
 
-        // Handle for updating this garage
+        // API handles
         let garage_handle: Api<Garage> = Api::namespaced(context.client.clone(), &namespace);
+        let bucket_handle: Api<Bucket> = Api::all(context.client.clone());
 
         // Get the last known status of this garage, using the default if not present
         let status = self.status.clone().unwrap_or_default();
@@ -83,8 +86,29 @@ impl Reconcile for Garage {
                 )
             }
 
-            // If we are done and ready, then check again in an hour in case we missed something
-            GarageState::Ready => (Duration::from_secs(60 * 60), GarageState::Ready),
+            // If we are done and ready, then reconcile the buckets and check again in an hour in case we missed something
+            GarageState::Ready => {
+                // Get all buckets that we own and reconcile them
+                // TODO: Should we do this in parallel?
+                // TODO: Listing requires filtering until `selectableFields` is stabilised and added to k8s (v1.30 and beyond)
+                let owned_buckets = bucket_handle
+                    .list(&ListParams::default())
+                    .await?
+                    .into_iter()
+                    .filter(|b| {
+                        b.spec.garage_ref.name == name && b.spec.garage_ref.namespace == namespace
+                    });
+
+                let bucket_context = Arc::new(BucketContext {
+                    common: context.clone(),
+                    owner: self.clone(),
+                });
+                for bucket in owned_buckets {
+                    bucket.reconcile(bucket_context.clone()).await?;
+                }
+
+                (Duration::from_secs(60 * 60), GarageState::Ready)
+            }
 
             // If we have encountered an error, try to start over in 15 seconds
             GarageState::Errored => (Duration::from_secs(15), GarageState::Creating),
@@ -111,7 +135,6 @@ impl Reconcile for Garage {
         let ps = PatchParams::apply("garage-operator").force(); // TODO: Why is this force?
         let _o = garage_handle.patch_status(&name, &ps, &new_status).await?;
 
-        // If no events were received, check back every 5 minutes
         Ok(Action::requeue(requeue))
     }
 
@@ -129,7 +152,7 @@ impl Reconcile for Garage {
 }
 
 impl Garage {
-    async fn create_admin(&self, context: Arc<Context>) -> Result<GarageAdmin, Error> {
+    pub async fn create_admin(&self, context: Arc<Context>) -> Result<GarageAdmin, Error> {
         // Fetch the garage admin secret token from k8s
         let token = {
             let namespace = self.namespace().ok_or(Error::IllegalGarage(

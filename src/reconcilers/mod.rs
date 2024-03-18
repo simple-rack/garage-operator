@@ -1,15 +1,17 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use kube::{runtime::controller::Action, Client, CustomResourceExt, ResourceExt};
 use tokio::sync::RwLock;
 
-pub mod garage;
-
-use std::sync::Arc;
-
 use crate::{operator::Diagnostics, Error, Metrics};
 
-/// The context passed around reconcilers
-pub(crate) struct Context {
+// mod access_key;
+pub mod bucket;
+pub mod garage;
+
+/// The context passed around
+pub struct CommonContext {
     /// Kubernetes client
     pub client: Client,
 
@@ -29,9 +31,11 @@ pub(crate) trait Reconcile
 where
     Self: CustomResourceExt + ResourceExt
 {
+    type Context;
+
     /// Attempt to reconcile a resource
-    async fn reconcile(&self, context: Arc<Context>) -> Result<Action, Error>;
+    async fn reconcile(&self, context: Arc<Self::Context>) -> Result<Action, Error>;
 
     /// Attempt to deploy all necessary sub-resources for this CRD.
-    async fn deploy_resources(&self, context: Arc<Context>) -> Result<(), Error>;
+    async fn deploy_resources(&self, context: Arc<Self::Context>) -> Result<(), Error>;
 }

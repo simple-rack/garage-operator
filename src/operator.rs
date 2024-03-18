@@ -20,7 +20,7 @@ use tokio::sync::RwLock;
 use tracing::{error, field, info, instrument, Span};
 
 use crate::{
-    reconcilers::{Context, Reconcile},
+    reconcilers::{CommonContext as Context, Reconcile},
     resources::{AccessKey, Bucket, Garage},
     telemetry, Error, Metrics, Result,
 };
