@@ -203,7 +203,8 @@ impl Garage {
             .enumerate()
             .map(|(index, capacity)| {
                 format!(
-                    r#"{{ path = "/mnt/disk{index}", capacity = "{}B" }}"#,
+                    r#"{{ path = "{}", capacity = "{}B" }}"#,
+                    get_mount_for_index(index),
                     capacity.to_bytes_usize().unwrap(),
                 )
             })
@@ -361,7 +362,7 @@ impl Garage {
                                         .enumerate()
                                         .map(|(index, _)| VolumeMount {
                                             name: format!("data-pvc-{index}"),
-                                            mount_path: format!("/mnt/data{index}"),
+                                            mount_path: get_mount_for_index(index),
                                             ..Default::default()
                                         })
                                         .collect(),
@@ -617,6 +618,11 @@ impl Garage {
 
         Ok(source_info)
     }
+}
+
+// Helper for making sure that mounts line up
+fn get_mount_for_index(index: usize) -> String {
+    format!("/mnt/disk{index}")
 }
 
 impl Garage {
