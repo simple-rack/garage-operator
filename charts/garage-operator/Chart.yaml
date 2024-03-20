@@ -3,4 +3,4 @@ name: garage-operator
 description: Operator for the Garage S3 storage project.
 type: application
 version: 0.2.2
-appVersion: "0.2.1"
+appVersion: "0.2.2"
